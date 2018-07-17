@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// AWSExternalID is used to enable integration with AWS via IAM Roles.
+// AwsExternalID is used to enable integration with AWS via IAM Roles.
 type AwsExternalID struct {
 	ExternalID string `json:"generated_external_id"`
 }

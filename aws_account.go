@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// AWSAccount represents the configuration of an AWS Account enabled in CloudHealth.
+// AwsAccount represents the configuration of an AWS Account enabled in CloudHealth.
 type AwsAccount struct {
 	ID             int                      `json:"id"`
 	Name           string                   `json:"name"`
@@ -27,7 +27,7 @@ type AwsAccountAuthentication struct {
 	AssumeRoleExternalID string `json:"assume_role_external_id,omitempty"`
 }
 
-// ErrAccountNotFound is returned when an AWS Account doesn't exist on a Read or Delete.
+// ErrAwsAccountNotFound is returned when an AWS Account doesn't exist on a Read or Delete.
 // It's useful for ignoring errors (e.g. delete if exists).
 var ErrAwsAccountNotFound = errors.New("AWS Account not found")
 
