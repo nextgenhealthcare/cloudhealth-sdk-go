@@ -1,3 +1,6 @@
+[![GoDoc](http://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/nextgenhealthcare/cloudhealth-sdk-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/nextgenhealthcare/cloudhealth-sdk-go)](https://goreportcard.com/report/github.com/nextgenhealthcare/cloudhealth-sdk-go)
+
 # CloudHealth API in Go
 
 A Go wrapper for the [CloudHealth Cloud Management Platform](https://www.cloudhealthtech.com/) API.
