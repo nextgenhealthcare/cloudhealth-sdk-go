@@ -59,6 +59,44 @@ func TestGetAwsAccountOK(t *testing.T) {
 	}
 }
 
+func TestGetAwsAccountsOK(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if r.Method != "GET" {
+			t.Errorf("Expected ‘GET’ request, got ‘%s’", r.Method)
+		}
+		expectedURL := "/aws_accounts/"
+		if r.URL.EscapedPath() != expectedURL {
+			t.Errorf("Expected request to ‘%s’, got ‘%s’", expectedURL, r.URL.EscapedPath())
+		}
+		body, _ := json.Marshal(defaultAWSAccounts)
+		w.Write(body)
+	}))
+	defer ts.Close()
+
+	c, err := NewClient("apiKey", ts.URL)
+	if err != nil {
+		t.Errorf("NewClient() returned an error: %s", err)
+		return
+	}
+
+	returnedAwsAccounts, err := c.GetAwsAccounts()
+	if err != nil {
+		t.Errorf("NewClient() returned an error: %s", err)
+		return
+	}
+	fmt.Println(returnedAwsAccounts.AwsAccounts)
+	if len(returnedAwsAccounts.AwsAccounts) != 2 {
+		t.Errorf("All accounts have not be retrieved")
+		return
+	}
+	if returnedAwsAccounts.AwsAccounts[0].ID != defaultAWSAccounts.AwsAccounts[0].ID && returnedAwsAccounts.AwsAccounts[0].ID != defaultAWSAccounts.AwsAccounts[1].ID {
+		t.Errorf("Retrieved accounts don't match")
+		return
+	}
+	return
+}
+
 func TestGetAwsAccountDoesntExist(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
