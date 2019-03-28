@@ -14,6 +14,19 @@ var defaultAWSAccount = AwsAccount{
 	Name: "test",
 }
 
+var defaultAWSAccounts = AwsAccounts{
+	AwsAccounts: []AwsAccount{
+		AwsAccount{
+			ID:   1234567890,
+			Name: "test",
+		},
+		AwsAccount{
+			ID:   9876543210,
+			Name: "tset",
+		},
+	},
+}
+
 func TestGetAwsAccountOK(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

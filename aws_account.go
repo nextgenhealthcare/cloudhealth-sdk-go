@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -16,6 +17,11 @@ type AwsAccount struct {
 	ID             int                      `json:"id"`
 	Name           string                   `json:"name"`
 	Authentication AwsAccountAuthentication `json:"authentication"`
+}
+
+// AwsAccounts represents all AWS Accounts enabled in CloudHealth with their configurations.
+type AwsAccounts struct {
+	AwsAccounts []AwsAccount `json:"aws_accounts"`
 }
 
 // AwsAccountAuthentication represents the authentication details for AWS integration.
@@ -69,6 +75,63 @@ func (s *Client) GetAwsAccount(id int) (*AwsAccount, error) {
 	default:
 		return nil, fmt.Errorf("Unknown Response with CloudHealth: `%d`", resp.StatusCode)
 	}
+}
+
+// GetAwsAccounts gets all AWS Accounts enabled in CloudHealth.
+func (s *Client) GetAwsAccounts() (*AwsAccounts, error) {
+	awsaccounts, err := iterateOverAwsAccountsPages(s)
+	if err != nil {
+		return nil, err
+	}
+	return awsaccounts, nil
+}
+
+// iterateOverAwsAccountsPages iterates over all pages returned by CloudHealth for listing enabled AWS accounts.
+func iterateOverAwsAccountsPages(s *Client) (*AwsAccounts, error) {
+	var awsaccounts *AwsAccounts
+	var page int
+	params := url.Values{"per_page": {"100"}, "page": {strconv.Itoa(page)}, "api_key": {s.ApiKey}}
+	relativeURL, _ := url.Parse(fmt.Sprintf("aws_accounts/%s", params.Encode()))
+	url := s.EndpointURL.ResolveReference(relativeURL)
+
+	req, err := http.NewRequest("GET", url.String(), nil)
+
+	client := &http.Client{
+		Timeout: time.Second * 15,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var pageofaccounts = new(AwsAccounts)
+	switch resp.StatusCode {
+	case http.StatusOK:
+		err = json.Unmarshal(responseBody, &pageofaccounts)
+		if err != nil {
+			return nil, err
+		}
+	case http.StatusUnauthorized:
+		return nil, ErrClientAuthenticationError
+	case http.StatusNotFound:
+		return nil, ErrAwsAccountNotFound
+	default:
+		return nil, fmt.Errorf("Unknown Response with CloudHealth: `%d`", resp.StatusCode)
+	}
+	for _, a := range pageofaccounts.AwsAccounts {
+		awsaccounts.AwsAccounts = append(awsaccounts.AwsAccounts, a)
+	}
+
+	if len(pageofaccounts.AwsAccounts) < 100 {
+		return awsaccounts, nil
+	}
+	return iterateOverAwsAccountsPages(s)
 }
 
 // CreateAwsAccount enables a new AWS Account in CloudHealth.
