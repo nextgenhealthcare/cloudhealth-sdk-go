@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// Clause represents clauses for matching the rules
 type Clause struct {
 	Field    []string `json:"field,omitempty"`
 	TagField []string `json:"tag_field,omitempty"`
@@ -19,11 +20,13 @@ type Clause struct {
 	Val      string   `json:"val,omitempty"`
 }
 
+// Condition is a group of clauses that need to match in order for the whole rule to match
 type Condition struct {
 	CombineWith string   `json:"combine_with,omitempty"`
 	Clauses     []Clause `json:"clauses,omitempty"`
 }
 
+// Rule is a single rule inside rules array
 type Rule struct {
 	Type      string     `json:"type,omitempty"`
 	Asset     string     `json:"asset,omitempty"`
@@ -35,6 +38,7 @@ type Rule struct {
 	Condition *Condition `json:"condition,omitempty"`
 }
 
+// ConstantItem is an element of constants array
 type ConstantItem struct {
 	RefID   string  `json:"ref_id,omitempty"`
 	BlkID   *string `json:"blk_id,omitempty"` // for Dynamic Groups
@@ -43,15 +47,18 @@ type ConstantItem struct {
 	IsOther string  `json:"is_other,omitempty"` // the "Other" for Static Groups
 }
 
+// Constant is a list of constantItems
 type Constant struct {
 	Type string         `json:"type,omitempty"`
 	List []ConstantItem `json:"list,omitempty"`
 }
 
+// Perspective is a representation of the perspective API object
 type Perspective struct {
 	Schema Schema `json:"schema"`
 }
 
+// A Schema is a representation of the schema object. Name has to be unique, and it also contains a list of rules, constants and merges.
 type Schema struct {
 	Name             string        `json:"name"`
 	IncludeInReports string        `json:"include_in_reports"`
@@ -60,22 +67,42 @@ type Schema struct {
 	Merges           []interface{} `json:"merges"` // Not supported
 }
 
+// PerspectiveMap is a representation of GET /perspective_schemas REST API call (GetAllPerspectives()). It's a map of perspective IDs and PerpsectiveStatus objects
 type PerspectiveMap map[string]PerspectiveStatus
 
+// PerspectiveStatus represents the information returned by GET /perspective_schemas REST API call. It contains a Name and Active field which tells if a perspective is active or archived
 type PerspectiveStatus struct {
 	Name   string `json:"name"`
 	Active bool   `json:"active"`
 }
 
-type Group map[string]interface{}
-
+// This is a special Perspective which is returned by the upstream API instead of a 404 if the schema we are trying to get does not exist
 var emptyPerspective = Perspective{
 	Schema: Schema{
-		Name: "Empty",
+		Name:             "Empty",
+		IncludeInReports: "false",
 	},
 }
 
+// ErrPerspectiveNotFound is returned when a Perspective doesn't exist on Read
 var ErrPerspectiveNotFound = errors.New("Perspective not found")
+
+const StaticGroupType = "Static Group"
+const DynamicGroupType = "Dynamic Group"
+const DynamicGroupBlockType = "Dynamic Group Block"
+
+func NewConstant(t string) (constant *Constant) {
+	constant = new(Constant)
+	constant.Type = t
+	constant.List = make([]ConstantItem, 0)
+	return constant
+}
+
+// This function checks if the API returned a perspective that is "Empty", thus telling us that the queried perspective ID does not exist
+func (p *Perspective) Empty() bool {
+	s := p.Schema
+	return s.Name == "Empty" && s.IncludeInReports == "false" && len(s.Rules) == 0 && len(s.Merges) == 0 && len(s.Constants) == 0
+}
 
 func (s *Client) GetAllPerspectives() (*PerspectiveMap, error) {
 	relativeURL, _ := url.Parse(fmt.Sprintf("perspective_schemas?api_key=%s", s.ApiKey))
@@ -139,6 +166,9 @@ func (s *Client) GetPerspective(id string) (*Perspective, error) {
 		if err != nil {
 			return nil, err
 		}
+		if perspective.Empty() {
+			return nil, ErrPerspectiveNotFound
+		}
 		return perspective, nil
 	case http.StatusUnauthorized:
 		return nil, ErrClientAuthenticationError
@@ -191,7 +221,7 @@ func (s *Client) CreatePerspective(perspective *Perspective) (string, error) {
 	}
 }
 
-func (s *Client) UpdatePerspective(perspectiveID string, perspective Perspective) (*Perspective, error) {
+func (s *Client) UpdatePerspective(perspectiveID string, perspective *Perspective) (*Perspective, error) {
 
 	relativeURL, _ := url.Parse(fmt.Sprintf("perspective_schemas/%s?api_key=%s", perspectiveID, s.ApiKey))
 	url := s.EndpointURL.ResolveReference(relativeURL)
@@ -236,8 +266,28 @@ func (s *Client) UpdatePerspective(perspectiveID string, perspective Perspective
 }
 
 func (s *Client) DeletePerspective(id string) error {
+	return s.deletePerspectiveCall(id, map[string]string{
+		"hard_delete": "true",
+	})
+}
 
+func (s *Client) ArchivePerspective(id string) error {
+	return s.deletePerspectiveCall(id, map[string]string{
+		"hard_delete": "false",
+	})
+}
+
+func (s *Client) deletePerspectiveCall(id string, opts ...map[string]string) error {
 	relativeURL, _ := url.Parse(fmt.Sprintf("perspective_schemas/%s?api_key=%s", id, s.ApiKey))
+	q := relativeURL.Query()
+	for _, opt := range opts {
+		for k, v := range opt {
+			q.Add(k, v)
+		}
+	}
+
+	relativeURL.RawQuery = q.Encode()
+
 	url := s.EndpointURL.ResolveReference(relativeURL)
 
 	req, err := http.NewRequest("DELETE", url.String(), nil)

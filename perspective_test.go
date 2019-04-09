@@ -57,6 +57,33 @@ func TestGetPerspectiveOK(t *testing.T) {
 	}
 }
 
+func TestGetPerspectiveEmptyDoesntExist(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if r.Method != "GET" {
+			t.Errorf("Expected ‘GET’ request, got ‘%s’", r.Method)
+		}
+		expectedURL := fmt.Sprintf("/perspective_schemas/%s", defaultPerspectiveID)
+		if r.URL.EscapedPath() != expectedURL {
+			t.Errorf("Expected request to ‘%s’, got ‘%s’", expectedURL, r.URL.EscapedPath())
+		}
+		body, _ := json.Marshal(emptyPerspective)
+		w.Write(body)
+	}))
+	defer ts.Close()
+
+	c, err := NewClient("apiKey", ts.URL)
+	if err != nil {
+		t.Errorf("NewClient() returned an error: %s", err)
+		return
+	}
+
+	if p, err := c.GetPerspective(defaultPerspectiveID); err != ErrPerspectiveNotFound {
+		t.Errorf("GetPerspective() returned the wrong error: %s\nGot Perspective:\n%v", err, p)
+		return
+	}
+}
+
 func TestGetPerspectiveDoesntExist(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -188,7 +215,7 @@ func TestUpdatePerspectiveOK(t *testing.T) {
 		return
 	}
 
-	returnedPerspective, err := c.UpdatePerspective(defaultPerspectiveID, updatedPerspective)
+	returnedPerspective, err := c.UpdatePerspective(defaultPerspectiveID, &updatedPerspective)
 	if err != nil {
 		t.Errorf("UpdatePerspective() returned an error: %s", err)
 		return
@@ -212,6 +239,9 @@ func TestDeletePerspectiveOK(t *testing.T) {
 		expectedURL := fmt.Sprintf("/perspective_schemas/%s", defaultPerspectiveID)
 		if r.URL.EscapedPath() != expectedURL {
 			t.Errorf("Expected request to ‘%s’, got ‘%s’", expectedURL, r.URL.EscapedPath())
+		}
+		if r.URL.Query().Get("hard_delete") != "true" {
+			t.Errorf("Expected that the request will have hard_delete=true")
 		}
 	}))
 	defer ts.Close()
@@ -251,6 +281,35 @@ func TestDeletePerspectiveDoesntExist(t *testing.T) {
 	err = c.DeletePerspective(defaultPerspectiveID)
 	if err != ErrPerspectiveNotFound {
 		t.Errorf("DeletePerspective() returned the wrong error: %s", err)
+		return
+	}
+}
+
+func TestArchivePerspectiveOK(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if r.Method != "DELETE" {
+			t.Errorf("Expected ‘DELETE’ request, got ‘%s’", r.Method)
+		}
+		expectedURL := fmt.Sprintf("/perspective_schemas/%s", defaultPerspectiveID)
+		if r.URL.EscapedPath() != expectedURL {
+			t.Errorf("Expected request to ‘%s’, got ‘%s’", expectedURL, r.URL.EscapedPath())
+		}
+		if r.URL.Query().Get("hard_delete") != "false" {
+			t.Errorf("Expected that the request will have hard_delete=false")
+		}
+	}))
+	defer ts.Close()
+
+	c, err := NewClient("apiKey", ts.URL)
+	if err != nil {
+		t.Errorf("NewClient() returned an error: %s", err)
+		return
+	}
+
+	err = c.ArchivePerspective(defaultPerspectiveID)
+	if err != nil {
+		t.Errorf("DeletePerspective() returned an error: %s", err)
 		return
 	}
 }
