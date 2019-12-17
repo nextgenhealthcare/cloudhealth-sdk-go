@@ -14,6 +14,65 @@ var defaultAWSAccount = AwsAccount{
 	Name: "test",
 }
 
+var defaultPerPage int = 10
+
+func sliceAwsAccountsEqual(a, b []AwsAccount) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestGetAllAwsAccountsOK(t *testing.T) {
+	var allAWSAccounts []AwsAccount
+
+	// Construct a 15 item dummy slice of test AWS accounts
+	for i := 0; i < 15; i++ {
+		account := defaultAWSAccount
+		account.ID = defaultAWSAccount.ID + i
+		account.Name = fmt.Sprintf("%s-%02d", defaultAWSAccount.Name, i)
+		//fmt.Printf("%#v\n", account)
+		allAWSAccounts = append(allAWSAccounts, account)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if r.Method != "GET" {
+			t.Errorf("Expected ‘GET’ request, got ‘%s’", r.Method)
+		}
+		expectedURL := "/aws_accounts"
+		if r.URL.EscapedPath() != expectedURL {
+			t.Errorf("Expected request to ‘%s’, got ‘%s’", expectedURL, r.URL.EscapedPath())
+		}
+
+		body, _ := json.Marshal(AwsAccounts{Accounts: allAWSAccounts})
+		w.Write(body)
+	}))
+	defer ts.Close()
+
+	c, err := NewClient("apiKey", ts.URL)
+	if err != nil {
+		t.Errorf("NewClient() returned an error: %s", err)
+		return
+	}
+	returnedAwsAccounts, err := c.GetAllAwsAccounts(defaultPerPage)
+	if err != nil {
+		t.Errorf("GetAllAwsAccounts() returned an error: %s", err)
+		return
+	}
+	if !sliceAwsAccountsEqual(returnedAwsAccounts, allAWSAccounts) {
+		got, _ := json.MarshalIndent(allAWSAccounts, "", "  ")
+		expected, _ := json.MarshalIndent(returnedAwsAccounts, "", "  ")
+		t.Errorf("GetAllAwsAccounts()\nexpected: %s\ngot: %s\n", expected, got)
+		return
+	}
+}
+
 func TestGetAwsAccountOK(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
