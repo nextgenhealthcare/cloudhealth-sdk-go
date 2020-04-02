@@ -32,3 +32,29 @@ func TestBadApiKey(t *testing.T) {
 		return
 	}
 }
+
+func TestTimeoutArg(t *testing.T) {
+	testTimeout := 42
+	c, err := NewClient("apiKey", "https://api.foo.bar", testTimeout)
+	if err != nil {
+		t.Errorf("NewClient() returned an error: %s", err)
+		return
+	}
+	if c.Timeout != testTimeout {
+		t.Errorf("Unexpected NewClient() Timeout value: %d != %d", c.Timeout, testTimeout)
+		return
+	}
+}
+
+func TestDefaultTimeout(t *testing.T) {
+	defaultTimeout := 15
+	c, err := NewClient("apiKey", "https://api.foo.bar")
+	if err != nil {
+		t.Errorf("NewClient() returned an error: %s", err)
+		return
+	}
+	if c.Timeout != defaultTimeout {
+		t.Errorf("Unexpected NewClient() Timeout value: %d != %d", c.Timeout, defaultTimeout)
+		return
+	}
+}
